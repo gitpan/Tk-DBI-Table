@@ -40,6 +40,9 @@ my $tkdbi = $top->DBITable(
 		-debug  	=> 1,
 		-display_id	=> 0,
 		-srtColumnStyle => $SStyles{'sorted_column'},
+		-maxchars	=> {
+			descr => 10,
+		},
 		)->pack(expand => 1, -fill => 'both');
 
 $tkdbi->Subwidget('table')->configure(

@@ -2,8 +2,8 @@ package Tk::DBI::Table;
 #------------------------------------------------
 # automagically updated versioning variables -- CVS modifies these!
 #------------------------------------------------
-our $Revision           = '$Revision: 1.3 $';
-our $CheckinDate        = '$Date: 2003/04/03 15:39:27 $';
+our $Revision           = '$Revision: 1.8 $';
+our $CheckinDate        = '$Date: 2003/04/29 16:25:58 $';
 our $CheckinUser        = '$Author: xpix $';
 # we need to clean these up right here
 $Revision               =~ s/^\$\S+:\s*(.*?)\s*\$$/$1/sx;
@@ -33,21 +33,25 @@ Tk::DBI::Table - Megawidget to display a sql-Statement in HList.
 
 =head1 DESCRIPTION
 
-This is a megawidget to display a sql statement from your database. 
-The features are:
-- every column has a ResizeButton for flexible width
-- The user can activate every Button and this will sort the column in the
-direction 'ASC', 'Desc' or 'None'.
+This is a megawidget that enables you to display sql statements from a database. 
+The features are: 
+
+=over 4
+
+=item each column has a ResizeButton for flexible width 
+
+=item The user can activate any Button to sort the column in the directions 'ASC', 'Desc' or 'None'. 
+
+=item Sorted column can display with a extra style
+
+=back
 
 =cut
 
 use Tk::HList;
 use Tk::Compound;
-
-# Special Module
-eval('use Tk::ResizeButton;');
-my $ERR = 1 if($@);
-warn $@ if($@);
+use Tk::ResizeButton;
+use Data::Dumper;
 
 use base qw/Tk::Derived Tk::Frame/;
 
@@ -116,7 +120,7 @@ A database handle, this will return a error if not defined.
 
 =head2 -sql => 'select * from table'
 
-A statement, this will return a error if not defined.
+A sql statement, this will return an error if not defined. 
 
 =cut
 
@@ -124,7 +128,7 @@ A statement, this will return a error if not defined.
 
 =head2 -debug [I<0>|1]
 
-This is a switch for debug output to the normal console (STDOUT)
+This is a switch that turns on debug output to the normal console (STDOUT).
 
 =cut
 
@@ -132,7 +136,7 @@ This is a switch for debug output to the normal console (STDOUT)
 
 =head2 -display_id [I<Off>|On]
 
-This is a switch for displaying the id column.
+This is a switch for displaying the index column.
 
 =cut
 
@@ -140,15 +144,24 @@ This is a switch for displaying the id column.
 
 =head2 -columnWidths [colWidth_0, colWidth_1, colWidth_2, ...]
 
-Default width for field columns.
+Default field column width.
 
 =cut
+
+	$obj->{maxchars}	= delete $args->{'-maxchars'};
+
+=head2 -maxchars number or {col1 => number}
+
+Maximum displaying chars in the cells. Global or only in named columns.
+
+=cut
+
 
 	$obj->{columnWidths}	= delete $args->{'-columnWidths'};
 
 =head2 -srtColumnStyle(option => value)
 
-Style for sorted column.
+Column sort style.
 
 =cut
 
@@ -183,7 +196,7 @@ Refresh the table and sort the col number or return the actually col sort number
 
 =head2 $dbitable->direction( ['NONE', 'ASC' or 'DESC'] );
 
-Give a new direction. no parameter will return the actually direction.
+Set a new sorting direction. no parameter will return the actual sort direction. 
 
 =cut
 
@@ -231,41 +244,37 @@ sub refresh {
 	my $c = -1;
 	foreach my $field (@fields) {
 		$c++;
-		unless($ERR) {
-			$obj->{header}->{$c} = $hl->ResizeButton( 
-			  -relief 	=> 'flat', 
-			  -anchor	=> 'nw',
-			  -border	=> -2,
-			  -pady 	=> -10, 
-			  -padx 	=> 10, 
-			  -widget 	=> \$hl,
-			  -column 	=> $c,
-			  -command	=> [\&refresh, $obj, $c],
-			);
+		$obj->{header}->{$c} = $hl->ResizeButton( 
+		  -relief 	=> 'flat', 
+		  -anchor	=> 'nw',
+		  -border	=> -2,
+		  -pady 	=> -10, 
+		  -padx 	=> 10, 
+		  -widget 	=> \$hl,
+		  -column 	=> $c,
+		  -command	=> [\&refresh, $obj, $c],
+		);
 
-			$obj->Advertise(sprintf("HB_%d", $c) => $obj->{header}->{$c});   #Buttons PART.
+		$obj->Advertise(sprintf("HB_%d", $c) => $obj->{header}->{$c});   #Buttons PART.
 
-			# create Images (Text)
-			my $img = $obj->{header}->{$c}->Compound;
-			$obj->{header}->{$c}->configure(-image => $img);
-			$img->Line;
-			$img->Text(-text => $field); 
-			if(defined $sortcolumn and $sortcolumn == $c and ($obj->direction eq 'ASC' or $obj->direction eq 'DESC')) {
-				$img->Space(-width => 4);
-				$img->Bitmap(-bitmap => ($obj->direction eq 'ASC' ? $BITMAPUP : $BITMAPDOWN));
-				$img->Space(-width => 10);
-			} else {
-				$img->Space(-width => 24);
-			}
-
-			$hl->headerCreate($c, 
-				-itemtype => 'window',
-				-widget	  => $obj->{header}->{$c}, 
-			);
-
+		# create Images (Text)
+		my $img = $obj->{header}->{$c}->Compound;
+		$obj->{header}->{$c}->configure(-image => $img);
+		$img->Line;
+		$img->Text(-text => $field); 
+		if(defined $sortcolumn and $sortcolumn == $c and ($obj->direction eq 'ASC' or $obj->direction eq 'DESC')) {
+			$img->Space(-width => 4);
+			$img->Bitmap(-bitmap => ($obj->direction eq 'ASC' ? $BITMAPUP : $BITMAPDOWN));
+			$img->Space(-width => 10);
 		} else {
-			$hl->headerCreate($c,	-text => $field);
+			$img->Space(-width => 24);
 		}
+
+		$hl->headerCreate($c, 
+			-itemtype => 'window',
+			-widget	  => $obj->{header}->{$c}, 
+		);
+
 		$hl->columnWidth($c, $obj->{columnWidths}->[$c]) 
 			if(defined $obj->{columnWidths}->[$c]);
 	}
@@ -312,9 +321,16 @@ sub draw_row {
 	$hl->add($zeile->[0]);
 	my $c = -1;
 	foreach my $column (@$zeile) {
+		$c++;
+		my $maxchars = 
+			(ref $obj->{maxchars} eq 'HASH' 
+				? $obj->{maxchars}->{$obj->{fields}->[$c]} 
+				: $obj->{maxchars} 
+			) || 0;
 		$column = ' ' unless($column);
 		$column =~ s/(\r|\n)//sig;
-		$c++;
+		$column = substr($column, 0, $maxchars).'...' 
+			if($maxchars and length($column)>$maxchars);
 		$hl->itemCreate( $zeile->[0], $c, 
 			-text => $column, 
 		);
@@ -402,16 +418,14 @@ sub error {
 		return $err;
 	}
 	$obj->{error} = sprintf($msg, @_);
+	warn $obj->{error};
 	return undef;
 } 
 
 
 1;
 
-
-
 =head1 ADVERTISED WIDGETS
-
 
 =head2 'table' => HList-Widget
 
@@ -427,6 +441,16 @@ This is a normal HList widget. I.e.:
 
 This is a (Resize)Button widget. This displays a Compound image with text and image.
 
+=head1 CHANGES
+
+$Log: Table.pm,v $
+Revision 1.8  2003/04/29 16:25:58  xpix
+* reformat
+
+Revision 1.6  2003/04/29 16:22:52  xpix
+* chnages tag
+
+
 =head1 AUTHOR
 
 xpix@netzwert.ag
@@ -436,9 +460,8 @@ Copyright (C) 2003 , Frank (xpix) Herrmann. All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
+
 =head1 KEYWORDS
 
 Tk::DBI::*, Tk::ResizeButton, Tk::HList
 
-
-__END__
